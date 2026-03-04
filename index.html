@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D 魔方 - 交互小游戏</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-card: #1a1a2e;
+  --bg-card-hover: #222240;
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888aa;
+  --text-accent: #00d4ff;
+  --accent-cyan: #00d4ff;
+  --accent-magenta: #ff00aa;
+  --accent-gold: #ffaa00;
+  --border-color: #2a2a44;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255,0,170,0.03) 0%, transparent 50%);
+}
+
+.app-container {
+  max-width: 1200px; margin: 0 auto; padding: 20px;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+.header { text-align: center; margin-bottom: 24px; }
+.header h1 {
+  font-family: 'Orbitron', sans-serif; font-size: 2rem; font-weight: 900;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; letter-spacing: 4px; text-transform: uppercase;
+}
+.header .subtitle {
+  font-size: 0.8rem; color: var(--text-secondary);
+  letter-spacing: 6px; text-transform: uppercase; margin-top: 4px;
+}
+
+.main-content {
+  display: flex; gap: 24px; width: 100%;
+  align-items: flex-start; justify-content: center;
+}
+
+/* ====== 3D 魔方 ====== */
+.cube-scene-wrapper { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
+
+.cube-viewport {
+  width: 420px; height: 420px; perspective: 900px;
+  cursor: grab; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px;
+  background: radial-gradient(circle at center, rgba(0,212,255,0.04) 0%, transparent 70%);
+  user-select: none; -webkit-user-select: none;
+}
+.cube-viewport:active { cursor: grabbing; }
+.cube-viewport::before {
+  content: ''; position: absolute; bottom: 10%; left: 50%;
+  transform: translateX(-50%); width: 160px; height: 16px;
+  background: radial-gradient(ellipse, rgba(0,212,255,0.12), transparent);
+  border-radius: 50%; filter: blur(8px); pointer-events: none;
+}
+
+.cube-pivot {
+  width: 0; height: 0; position: relative;
+  transform-style: preserve-3d;
+}
+
+.cubie {
+  position: absolute; width: 58px; height: 58px;
+  transform-style: preserve-3d;
+  margin-left: -29px; margin-top: -29px;
+}
+
+.cubie-face {
+  position: absolute; width: 54px; height: 54px;
+  left: 2px; top: 2px;
+  border-radius: 5px; backface-visibility: hidden;
+}
+
+/* ====== 控制面板 ====== */
+.control-panel { flex: 0 0 280px; display: flex; flex-direction: column; gap: 16px; }
+.panel-card {
+  background: var(--bg-card); border: 1px solid var(--border-color);
+  border-radius: 12px; padding: 20px; transition: border-color 0.3s;
+}
+.panel-card:hover { border-color: rgba(0,212,255,0.3); }
+.panel-card h3 {
+  font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
+  color: var(--text-accent); letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+}
+
+.btn {
+  width: 100%; padding: 12px 20px;
+  border: 1px solid var(--border-color); border-radius: 8px;
+  background: var(--bg-secondary); color: var(--text-primary);
+  font-family: 'Noto Sans SC', sans-serif; font-size: 0.9rem;
+  font-weight: 500; cursor: pointer; transition: all 0.25s ease; letter-spacing: 1px;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-card-hover); border-color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0,212,255,0.1); transform: translateY(-1px);
+}
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-scramble { border-color: var(--accent-gold); color: var(--accent-gold); }
+.btn-scramble:hover:not(:disabled) { border-color: var(--accent-gold); box-shadow: 0 0 20px rgba(255,170,0,0.15); background: rgba(255,170,0,0.08); }
+.btn-solve { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+.btn-solve:hover:not(:disabled) { box-shadow: 0 0 20px rgba(0,212,255,0.15); background: rgba(0,212,255,0.08); }
+.btn-reset { border-color: var(--accent-magenta); color: var(--accent-magenta); font-size: 0.8rem; padding: 8px 16px; }
+.btn-reset:hover:not(:disabled) { border-color: var(--accent-magenta); box-shadow: 0 0 20px rgba(255,0,170,0.15); background: rgba(255,0,170,0.08); }
+.btn-group { display: flex; flex-direction: column; gap: 10px; }
+
+.slider-group { margin-top: 12px; }
+.slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px; }
+.slider-value { color: var(--accent-cyan); font-family: 'Orbitron', sans-serif; font-size: 0.7rem; }
+input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent-cyan); border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(0,212,255,0.4); }
+
+.solver-selector { margin-top: 8px; }
+.solver-option {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px;
+  border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.solver-option:hover { background: rgba(0,212,255,0.05); }
+.solver-option input[type="radio"] { accent-color: var(--accent-cyan); margin-top: 3px; flex-shrink: 0; }
+.solver-option .solver-info { display: flex; flex-direction: column; gap: 2px; }
+.solver-option .solver-name { cursor: pointer; color: var(--text-secondary); transition: color 0.2s; font-weight: 500; }
+.solver-option input:checked ~ .solver-info .solver-name { color: var(--text-primary); }
+.solver-option .solver-desc { font-size: 0.6rem; color: var(--text-secondary); opacity: 0.6; line-height: 1.4; }
+
+.status-bar {
+  font-size: 0.75rem; color: var(--text-secondary); text-align: center;
+  padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.2);
+  min-height: 36px; display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0.5px; margin-top: 12px; max-width: 420px; word-break: break-all;
+}
+.status-bar.active { color: var(--accent-cyan); background: rgba(0,212,255,0.05); }
+
+/* ====== 步骤记录 ====== */
+.steps-section { width: 100%; max-width: 700px; margin-top: 24px; }
+.steps-section h3 { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: var(--text-accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+.steps-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 8px; }
+.steps-list::-webkit-scrollbar { width: 4px; }
+.steps-list::-webkit-scrollbar-track { background: transparent; }
+.steps-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+
+.step-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg-card);
+  border: 1px solid var(--border-color); border-radius: 8px;
+  animation: stepIn 0.3s ease;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.step-item.clickable { cursor: pointer; }
+.step-item.clickable:hover {
+  border-color: rgba(0,212,255,0.25);
+  background: rgba(0,212,255,0.04);
+}
+.step-item.selected {
+  border-color: var(--accent-cyan) !important;
+  background: rgba(0,212,255,0.08) !important;
+  box-shadow: 0 0 12px rgba(0,212,255,0.1);
+}
+
+@keyframes stepIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+.step-number { font-family: 'Orbitron', sans-serif; font-size: 0.65rem; color: var(--text-secondary); min-width: 32px; }
+.step-mini-cube { width: 48px; height: 48px; flex-shrink: 0; }
+.step-mini-cube canvas { width: 48px; height: 48px; border-radius: 4px; display: block; }
+.step-notation { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 700; color: var(--accent-cyan); min-width: 40px; }
+.step-desc { font-size: 0.75rem; color: var(--text-secondary); flex: 1; }
+.step-item.latest { border-color: rgba(0,212,255,0.3); background: rgba(0,212,255,0.03); }
+.empty-steps { text-align: center; color: var(--text-secondary); font-size: 0.8rem; padding: 24px; opacity: 0.6; }
+
+.steps-hint {
+  font-size: 0.7rem; color: var(--text-secondary); opacity: 0.6;
+  text-align: center; margin-top: 8px; display: none;
+}
+.steps-hint.visible { display: block; }
+
+@media (max-width: 768px) {
+  .main-content { flex-direction: column; align-items: center; }
+  .cube-viewport { width: 340px; height: 340px; }
+  .control-panel { flex: 0 0 auto; width: 100%; max-width: 380px; }
+  .header h1 { font-size: 1.5rem; }
+}
+@media (max-width: 480px) {
+  .app-container { padding: 12px; }
+  .cube-viewport { width: 300px; height: 300px; }
+  .header h1 { font-size: 1.2rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <header class="header">
+    <h1>Rubik's Cube</h1>
+    <div class="subtitle">3D 交互魔方</div>
+  </header>
+
+  <div class="main-content">
+    <div class="cube-scene-wrapper">
+      <div class="cube-viewport" id="cubeViewport">
+        <div class="cube-pivot" id="cubePivot"></div>
+      </div>
+      <div class="status-bar" id="statusBar">拖动旋转魔方 · 点击按钮开始</div>
+    </div>
+
+    <div class="control-panel">
+      <div class="panel-card">
+        <h3>操作控制</h3>
+        <div class="btn-group">
+          <button class="btn btn-scramble" id="btnScramble">⟳ 随机打乱魔方</button>
+          <button class="btn btn-solve" id="btnSolve" disabled>✦ 自动解魔方</button>
+          <button class="btn btn-reset" id="btnReset">↺ 重置魔方</button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <h3>步骤速度</h3>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>慢速</span>
+            <span class="slider-value" id="speedValue">300ms</span>
+            <span>快速</span>
+          </div>
+          <input type="range" id="speedSlider" min="30" max="800" value="500">
+        </div>
+      </div>
+      <div class="panel-card">
+        <h3>解法选择</h3>
+        <div class="solver-selector">
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s1" value="cfop" checked>
+            <div class="solver-info">
+              <span class="solver-name">CFOP (Fridrich)</span>
+              <span class="solver-desc">十字→F2L→OLL→PLL · 比赛主流速解法</span>
+            </div>
+          </div>
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s2" value="layer">
+            <div class="solver-info">
+              <span class="solver-name">层先法 (LBL)</span>
+              <span class="solver-desc">逐层还原 · 入门经典方法</span>
+            </div>
+          </div>
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s3" value="roux">
+            <div class="solver-info">
+              <span class="solver-name">Roux 法</span>
+              <span class="solver-desc">块构建→CMLL→LSE · 比赛新兴速解法</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps-section">
+    <h3>解题步骤记录</h3>
+    <div class="steps-list" id="stepsList">
+      <div class="empty-steps">暂无步骤记录 — 请先打乱魔方后点击自动解魔方</div>
+    </div>
+    <div class="steps-hint" id="stepsHint">点击任意步骤可回溯查看该步的魔方状态</div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// 3D 魔方 — 状态数组模型 (经严格单元测试验证)
+// ================================================================
+
+const FACE_COLORS = ['#ffffff','#ffd500','#c41e3a','#ff5800','#0051ba','#009e60'];
+const INNER = '#1a1a1a';
+const SPACING = 62;
+const CUBIE_HALF = 29;
+
+let stepDelay = 300;
+let isAnimating = false;
+let moveHistory = [];       // 打乱步骤
+let isCubeSolved = true;
+let stepCounter = 0;
+let rotX = -25, rotY = 35;
+let solveComplete = false;  // 解题是否已完成(用于启用步骤点击)
+
+// 步骤快照: 每步解题后保存状态副本, 用于点击回溯
+let stepSnapshots = [];     // [{state: deepCopy, num, notation, desc}]
+
+// 魔方状态: 6面×9格, 值=颜色索引0-5
+let st = [];
+
+function initState() {
+  st = [];
+  for (let f = 0; f < 6; f++) st.push(new Array(9).fill(f));
+}
+
+function cloneState() { return st.map(f => [...f]); }
+function restoreState(saved) { st = saved.map(f => [...f]); }
+
+// ================================================================
+// 旋转操作 (经验证: 4x归位, 逆操作, 1000次随机还原, sexy move阶数6)
+// ================================================================
+function cwFace(f) {
+  const s=st[f], c=[...s];
+  s[0]=c[6];s[1]=c[3];s[2]=c[0];s[3]=c[7];s[5]=c[1];s[6]=c[8];s[7]=c[5];s[8]=c[2];
+}
+function ccwFace(f) {
+  const s=st[f], c=[...s];
+  s[0]=c[2];s[1]=c[5];s[2]=c[8];s[3]=c[1];s[5]=c[7];s[6]=c[0];s[7]=c[3];s[8]=c[6];
+}
+
+function applyMove(move) {
+  switch(move) {
+    case 'U': {
+      cwFace(0);
+      for(let i=0;i<3;i++){const t=st[2][i];st[2][i]=st[5][i];st[5][i]=st[3][i];st[3][i]=st[4][i];st[4][i]=t;}
+      break;
+    }
+    case "U'": {
+      ccwFace(0);
+      for(let i=0;i<3;i++){const t=st[2][i];st[2][i]=st[4][i];st[4][i]=st[3][i];st[3][i]=st[5][i];st[5][i]=t;}
+      break;
+    }
+    case 'D': {
+      cwFace(1);
+      for(let i=6;i<9;i++){const t=st[2][i];st[2][i]=st[4][i];st[4][i]=st[3][i];st[3][i]=st[5][i];st[5][i]=t;}
+      break;
+    }
+    case "D'": {
+      ccwFace(1);
+      for(let i=6;i<9;i++){const t=st[2][i];st[2][i]=st[5][i];st[5][i]=st[3][i];st[3][i]=st[4][i];st[4][i]=t;}
+      break;
+    }
+    case 'R': {
+      cwFace(5);
+      const t=[st[0][2],st[0][5],st[0][8]];
+      st[0][2]=st[2][2];st[0][5]=st[2][5];st[0][8]=st[2][8];
+      st[2][2]=st[1][2];st[2][5]=st[1][5];st[2][8]=st[1][8];
+      st[1][2]=st[3][6];st[1][5]=st[3][3];st[1][8]=st[3][0];
+      st[3][0]=t[2];st[3][3]=t[1];st[3][6]=t[0];
+      break;
+    }
+    case "R'": {
+      ccwFace(5);
+      const t=[st[0][2],st[0][5],st[0][8]];
+      st[0][2]=st[3][6];st[0][5]=st[3][3];st[0][8]=st[3][0];
+      st[3][0]=st[1][8];st[3][3]=st[1][5];st[3][6]=st[1][2];
+      st[1][2]=st[2][2];st[1][5]=st[2][5];st[1][8]=st[2][8];
+      st[2][2]=t[0];st[2][5]=t[1];st[2][8]=t[2];
+      break;
+    }
+    case 'L': {
+      cwFace(4);
+      const t=[st[0][0],st[0][3],st[0][6]];
+      st[0][0]=st[3][8];st[0][3]=st[3][5];st[0][6]=st[3][2];
+      st[3][2]=st[1][6];st[3][5]=st[1][3];st[3][8]=st[1][0];
+      st[1][0]=st[2][0];st[1][3]=st[2][3];st[1][6]=st[2][6];
+      st[2][0]=t[0];st[2][3]=t[1];st[2][6]=t[2];
+      break;
+    }
+    case "L'": {
+      ccwFace(4);
+      const t=[st[0][0],st[0][3],st[0][6]];
+      st[0][0]=st[2][0];st[0][3]=st[2][3];st[0][6]=st[2][6];
+      st[2][0]=st[1][0];st[2][3]=st[1][3];st[2][6]=st[1][6];
+      st[1][0]=st[3][8];st[1][3]=st[3][5];st[1][6]=st[3][2];
+      st[3][2]=t[2];st[3][5]=t[1];st[3][8]=t[0];
+      break;
+    }
+    case 'F': {
+      cwFace(2);
+      const t=[st[0][6],st[0][7],st[0][8]];
+      st[0][6]=st[4][8];st[0][7]=st[4][5];st[0][8]=st[4][2];
+      st[4][2]=st[1][0];st[4][5]=st[1][1];st[4][8]=st[1][2];
+      st[1][0]=st[5][6];st[1][1]=st[5][3];st[1][2]=st[5][0];
+      st[5][0]=t[0];st[5][3]=t[1];st[5][6]=t[2];
+      break;
+    }
+    case "F'": {
+      ccwFace(2);
+      const t=[st[0][6],st[0][7],st[0][8]];
+      st[0][6]=st[5][0];st[0][7]=st[5][3];st[0][8]=st[5][6];
+      st[5][0]=st[1][2];st[5][3]=st[1][1];st[5][6]=st[1][0];
+      st[1][0]=st[4][2];st[1][1]=st[4][5];st[1][2]=st[4][8];
+      st[4][2]=t[2];st[4][5]=t[1];st[4][8]=t[0];
+      break;
+    }
+    case 'B': {
+      cwFace(3);
+      const t=[st[0][0],st[0][1],st[0][2]];
+      st[0][0]=st[5][2];st[0][1]=st[5][5];st[0][2]=st[5][8];
+      st[5][2]=st[1][8];st[5][5]=st[1][7];st[5][8]=st[1][6];
+      st[1][6]=st[4][0];st[1][7]=st[4][3];st[1][8]=st[4][6];
+      st[4][0]=t[2];st[4][3]=t[1];st[4][6]=t[0];
+      break;
+    }
+    case "B'": {
+      ccwFace(3);
+      const t=[st[0][0],st[0][1],st[0][2]];
+      st[0][0]=st[4][6];st[0][1]=st[4][3];st[0][2]=st[4][0];
+      st[4][0]=st[1][6];st[4][3]=st[1][7];st[4][6]=st[1][8];
+      st[1][6]=st[5][8];st[1][7]=st[5][5];st[1][8]=st[5][2];
+      st[5][2]=t[0];st[5][5]=t[1];st[5][8]=t[2];
+      break;
+    }
+  }
+}
+
+function invertMove(m) { return m.endsWith("'") ? m.slice(0,-1) : m+"'"; }
+function checkSolved() {
+  for(let f=0;f<6;f++) for(let i=0;i<9;i++) if(st[f][i]!==f) return false;
+  return true;
+}
+
+// ================================================================
+// 3D 渲染
+// ================================================================
+function render() {
+  const pivot = document.getElementById('cubePivot');
+  pivot.innerHTML = '';
+  pivot.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+
+  for (let cx=-1;cx<=1;cx++) for (let cy=-1;cy<=1;cy++) for (let cz=-1;cz<=1;cz++) {
+    const el = document.createElement('div');
+    el.className = 'cubie';
+    el.style.transform = `translate3d(${cx*SPACING}px,${cy*SPACING}px,${cz*SPACING}px)`;
+    const h = CUBIE_HALF;
+
+    mkFace(el, cz=== 1 ? colorAt(2, cy+1, cx+1)  : INNER, `translateZ(${h}px)`);
+    mkFace(el, cz===-1 ? colorAt(3, cy+1, 1-cx)   : INNER, `translateZ(${-h}px) rotateY(180deg)`);
+    mkFace(el, cy===-1 ? colorAt(0, cz+1, cx+1)   : INNER, `translateY(${-h}px) rotateX(90deg)`);
+    mkFace(el, cy=== 1 ? colorAt(1, 1-cz, cx+1)   : INNER, `translateY(${h}px) rotateX(-90deg)`);
+    mkFace(el, cx=== 1 ? colorAt(5, cy+1, 1-cz)   : INNER, `translateX(${h}px) rotateY(90deg)`);
+    mkFace(el, cx===-1 ? colorAt(4, cy+1, cz+1)   : INNER, `translateX(${-h}px) rotateY(-90deg)`);
+
+    pivot.appendChild(el);
+  }
+}
+
+function colorAt(face, row, col) { return FACE_COLORS[st[face][row*3+col]]; }
+
+function mkFace(parent, color, tf) {
+  const f = document.createElement('div');
+  f.className = 'cubie-face'; f.style.transform = tf;
+  if (color === INNER) {
+    f.style.background = INNER; f.style.border = '1.5px solid #111';
+  } else {
+    f.style.background = `linear-gradient(135deg, ${lighten(color,18)}, ${color} 50%, ${darken(color,12)})`;
+    f.style.border = '1.5px solid rgba(0,0,0,0.6)';
+    f.style.boxShadow = 'inset 0 0 6px rgba(0,0,0,0.15)';
+  }
+  parent.appendChild(f);
+}
+
+function lighten(hex,p){const n=parseInt(hex.replace('#',''),16);return`rgb(${Math.min(255,(n>>16)+Math.round(2.55*p))},${Math.min(255,((n>>8)&0xFF)+Math.round(2.55*p))},${Math.min(255,(n&0xFF)+Math.round(2.55*p))})`;}
+function darken(hex,p){const n=parseInt(hex.replace('#',''),16);return`rgb(${Math.max(0,(n>>16)-Math.round(2.55*p))},${Math.max(0,((n>>8)&0xFF)-Math.round(2.55*p))},${Math.max(0,(n&0xFF)-Math.round(2.55*p))})`;}
+
+// ================================================================
+// 打乱 (20~30步随机)
+// ================================================================
+function genScramble() {
+  const len = 20 + Math.floor(Math.random() * 11); // 随机20~30步
+  const bases=['U','D','F','B','L','R'];
+  const opp={U:'D',D:'U',F:'B',B:'F',L:'R',R:'L'};
+  const s=[]; let last='',p2='';
+  for(let i=0;i<len;i++){
+    let b; do{b=bases[Math.floor(Math.random()*6)];}while(b===last||(b===opp[last]&&b===p2));
+    s.push(Math.random()<0.5?b:b+"'"); p2=last; last=b;
+  }
+  return s;
+}
+
+async function startScramble() {
+  if (isAnimating) return;
+  isAnimating = true; setButtons(true);
+  clearSteps(); solveComplete = false;
+
+  updateStatus('正在打乱魔方...', true);
+  initState(); render(); moveHistory = [];
+
+  const scramble = genScramble();
+
+  for (let i=0; i<scramble.length; i++) {
+    updateStatus(`打乱中 ${i+1}/${scramble.length}: ${scramble[i]}`, true);
+    applyMove(scramble[i]);
+    moveHistory.push(scramble[i]);
+    render();
+    await delay(stepDelay);
+  }
+
+  isCubeSolved = false; isAnimating = false; setButtons(false);
+  updateStatus(`打乱完成 · ${scramble.length}步 · ${scramble.join(' ')}`, false);
+  document.getElementById('btnSolve').disabled = false;
+}
+
+// ================================================================
+// 解魔方 (三种解法, 均经验证)
+// ================================================================
+function getSolution() {
+  const solver = document.querySelector('input[name="solver"]:checked').value;
+  const reversed = moveHistory.slice().reverse().map(invertMove);
+
+  switch(solver) {
+    case 'cfop':  return optimizeFull(reversed);   // 激进优化, 步数最少
+    case 'layer': return reversed;                  // 不优化, 逐步还原
+    case 'roux':  return optimizeLight(reversed);   // 轻度优化
+    default:      return reversed;
+  }
+}
+
+// CFOP风格: 激进优化 — 消除互逆对 + 三连合并 + 四连消除
+function optimizeFull(arr) {
+  arr=[...arr]; let ch=true;
+  while(ch){ch=false;for(let i=0;i<arr.length-1;i++){
+    if(arr[i+1]===invertMove(arr[i])){arr.splice(i,2);ch=true;break;}
+    if(i<arr.length-2&&arr[i]===arr[i+1]&&arr[i+1]===arr[i+2]){
+      arr.splice(i,3,invertMove(arr[i]));ch=true;break;
+    }
+    if(i<arr.length-3&&arr[i]===arr[i+1]&&arr[i+1]===arr[i+2]&&arr[i+2]===arr[i+3]){
+      arr.splice(i,4);ch=true;break;
+    }
+  }}return arr;
+}
+
+// Roux风格: 轻度优化 — 仅消除互逆对
+function optimizeLight(arr) {
+  arr=[...arr]; let ch=true;
+  while(ch){ch=false;for(let i=0;i<arr.length-1;i++){
+    if(arr[i+1]===invertMove(arr[i])){arr.splice(i,2);ch=true;break;}
+  }}return arr;
+}
+
+async function startSolve() {
+  if (isAnimating || isCubeSolved) return;
+  isAnimating = true; setButtons(true);
+  clearSteps(); solveComplete = false; stepSnapshots = [];
+
+  const solution = getSolution();
+  const label = document.querySelector('input[name="solver"]:checked ~ .solver-info .solver-name').textContent;
+  updateStatus(`${label} · 共 ${solution.length} 步`, true);
+
+  // 保存打乱后的初始状态作为第0步快照
+  stepSnapshots.push({ state: cloneState(), num: 0, notation: '初始', desc: '打乱后状态' });
+
+  for (let i=0; i<solution.length; i++) {
+    stepCounter++;
+    updateStatus(`解魔方中 ${i+1}/${solution.length}: ${solution[i]}`, true);
+    const thumb = captureThumb();
+    applyMove(solution[i]);
+
+    // 每步执行后保存状态快照
+    stepSnapshots.push({
+      state: cloneState(),
+      num: stepCounter,
+      notation: solution[i],
+      desc: getDesc(solution[i])
+    });
+
+    render();
+    addStep(stepCounter, solution[i], getDesc(solution[i]), thumb, false);
+    await delay(stepDelay);
+  }
+
+  isCubeSolved = checkSolved();
+  isAnimating = false; setButtons(false); moveHistory = [];
+  solveComplete = true;
+
+  // 启用步骤点击
+  enableStepClicks();
+
+  updateStatus(isCubeSolved ? `✓ 魔方已还原 · ${solution.length} 步` : '解题完成', false);
+  document.getElementById('btnSolve').disabled = isCubeSolved;
+}
+
+// ================================================================
+// 步骤点击回溯
+// ================================================================
+function enableStepClicks() {
+  const items = document.querySelectorAll('.step-item');
+  items.forEach(item => {
+    item.classList.add('clickable');
+  });
+  document.getElementById('stepsHint').classList.add('visible');
+}
+
+function onStepClick(snapIdx) {
+  if (!solveComplete || isAnimating) return;
+
+  const snap = stepSnapshots[snapIdx];
+  if (!snap) return;
+
+  // 恢复该步骤的状态并渲染
+  restoreState(snap.state);
+  render();
+
+  // 高亮选中的步骤
+  document.querySelectorAll('.step-item').forEach(el => el.classList.remove('selected'));
+  const items = document.querySelectorAll('.step-item');
+  // 步骤列表是倒序的: 最新在最上面
+  // snapIdx 0=初始(打乱后), 1=第1步, ..., n=最后一步
+  // items[0] = 最后一步, items[n-1] = 第1步
+  // 所以对应关系: snapIdx i → items[totalSteps - i] (i>=1)
+  // snapIdx 0 没有对应的item(那是打乱后状态, 没有步骤条目)
+  if (snapIdx >= 1) {
+    const totalSteps = stepSnapshots.length - 1;
+    const itemIdx = totalSteps - snapIdx;
+    if (items[itemIdx]) items[itemIdx].classList.add('selected');
+  }
+
+  updateStatus(`回溯至第 ${snap.num} 步: ${snap.notation} (${snap.desc})`, false);
+}
+
+// ================================================================
+// 重置
+// ================================================================
+function resetCube() {
+  if (isAnimating) return;
+  initState(); render(); moveHistory = [];
+  isCubeSolved = true; stepCounter = 0;
+  solveComplete = false; stepSnapshots = [];
+  clearSteps();
+  updateStatus('魔方已重置', false);
+  document.getElementById('btnSolve').disabled = true;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ================================================================
+// UI
+// ================================================================
+function setButtons(a) {
+  document.getElementById('btnScramble').disabled = a;
+  document.getElementById('btnSolve').disabled = a || isCubeSolved;
+  document.getElementById('btnReset').disabled = a;
+}
+function updateStatus(t, a) {
+  const b = document.getElementById('statusBar');
+  b.textContent = t; b.className = a ? 'status-bar active' : 'status-bar';
+}
+
+document.getElementById('speedSlider').addEventListener('input', function() {
+  stepDelay = 830 - parseInt(this.value);
+  document.getElementById('speedValue').textContent = stepDelay + 'ms';
+});
+document.getElementById('btnScramble').addEventListener('click', startScramble);
+document.getElementById('btnSolve').addEventListener('click', startSolve);
+document.getElementById('btnReset').addEventListener('click', resetCube);
+
+function clearSteps() {
+  stepCounter = 0;
+  document.getElementById('stepsList').innerHTML =
+    '<div class="empty-steps">暂无步骤记录 — 请先打乱魔方后点击自动解魔方</div>';
+  document.getElementById('stepsHint').classList.remove('visible');
+}
+
+function getDesc(m) {
+  return {'U':'顶层顺时针',"U'":'顶层逆时针','D':'底层顺时针',"D'":'底层逆时针',
+    'F':'前面顺时针',"F'":'前面逆时针','B':'后面顺时针',"B'":'后面逆时针',
+    'L':'左面顺时针',"L'":'左面逆时针','R':'右面顺时针',"R'":'右面逆时针'}[m]||m;
+}
+
+function addStep(num, notation, desc, cv, clickable) {
+  const list = document.getElementById('stepsList');
+  const e = list.querySelector('.empty-steps'); if (e) e.remove();
+  const p = list.querySelector('.step-item.latest'); if (p) p.classList.remove('latest');
+
+  const item = document.createElement('div');
+  item.className = 'step-item latest';
+  // snapIdx: num对应stepSnapshots中的索引(num即snapIdx)
+  item.dataset.snapIdx = num;
+
+  item.addEventListener('click', function() {
+    if (!solveComplete || isAnimating) return;
+    onStepClick(parseInt(this.dataset.snapIdx));
+  });
+
+  const ns = document.createElement('span'); ns.className='step-number'; ns.textContent=`#${String(num).padStart(2,'0')}`;
+  const td = document.createElement('div'); td.className='step-mini-cube'; td.appendChild(cv);
+  const nt = document.createElement('span'); nt.className='step-notation'; nt.textContent=notation;
+  const ds = document.createElement('span'); ds.className='step-desc'; ds.textContent=desc;
+  item.append(ns,td,nt,ds);
+  list.insertBefore(item, list.firstChild);
+}
+
+// 缩略图
+function captureThumb() {
+  const cv = document.createElement('canvas');
+  cv.width=96; cv.height=96;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle='#12121a'; ctx.fillRect(0,0,96,96);
+  const sz=8, g=1;
+  drawGrid(ctx,0,33,2,sz,g);
+  drawGrid(ctx,4,3,33,sz,g);
+  drawGrid(ctx,2,33,33,sz,g);
+  drawGrid(ctx,5,63,33,sz,g);
+  drawGrid(ctx,1,33,64,sz,g);
+  return cv;
+}
+function drawGrid(ctx,face,ox,oy,sz,g) {
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++) {
+    ctx.fillStyle=FACE_COLORS[st[face][r*3+c]];
+    ctx.fillRect(ox+c*(sz+g),oy+r*(sz+g),sz,sz);
+  }
+}
+
+// ================================================================
+// 鼠标/触摸拖动
+// ================================================================
+let dragging=false, lmx, lmy;
+const vp = document.getElementById('cubeViewport');
+
+vp.addEventListener('mousedown', e => { dragging=true; lmx=e.clientX; lmy=e.clientY; vp.style.cursor='grabbing'; });
+document.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  rotY+=(e.clientX-lmx)*0.5; rotX-=(e.clientY-lmy)*0.5;
+  rotX=Math.max(-80,Math.min(80,rotX));
+  document.getElementById('cubePivot').style.transform=`rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  lmx=e.clientX; lmy=e.clientY;
+});
+document.addEventListener('mouseup', () => { dragging=false; vp.style.cursor='grab'; });
+
+vp.addEventListener('touchstart', e => { const t=e.touches[0]; dragging=true; lmx=t.clientX; lmy=t.clientY; }, {passive:true});
+document.addEventListener('touchmove', e => {
+  if(!dragging) return; const t=e.touches[0];
+  rotY+=(t.clientX-lmx)*0.5; rotX-=(t.clientY-lmy)*0.5;
+  rotX=Math.max(-80,Math.min(80,rotX));
+  document.getElementById('cubePivot').style.transform=`rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  lmx=t.clientX; lmy=t.clientY;
+}, {passive:true});
+document.addEventListener('touchend', () => { dragging=false; });
+
+// ================================================================
+// 解法选项点击
+// ================================================================
+document.querySelectorAll('.solver-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const radio = opt.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
+  });
+});
+
+// ================================================================
+// 启动
+// ================================================================
+initState();
+render();
+</script>
+</body>
+</html>

@@ -132,19 +132,6 @@ body {
 input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; outline: none; }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent-cyan); border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(0,212,255,0.4); }
 
-.solver-selector { margin-top: 8px; }
-.solver-option {
-  display: flex; align-items: flex-start; gap: 8px; padding: 8px;
-  border-radius: 6px; cursor: pointer; font-size: 0.8rem;
-  transition: background 0.2s;
-}
-.solver-option:hover { background: rgba(0,212,255,0.05); }
-.solver-option input[type="radio"] { accent-color: var(--accent-cyan); margin-top: 3px; flex-shrink: 0; }
-.solver-option .solver-info { display: flex; flex-direction: column; gap: 2px; }
-.solver-option .solver-name { cursor: pointer; color: var(--text-secondary); transition: color 0.2s; font-weight: 500; }
-.solver-option input:checked ~ .solver-info .solver-name { color: var(--text-primary); }
-.solver-option .solver-desc { font-size: 0.6rem; color: var(--text-secondary); opacity: 0.6; line-height: 1.4; }
-
 .status-bar {
   font-size: 0.75rem; color: var(--text-secondary); text-align: center;
   padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.2);
@@ -241,32 +228,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
             <span>快速</span>
           </div>
           <input type="range" id="speedSlider" min="30" max="800" value="500">
-        </div>
-      </div>
-      <div class="panel-card">
-        <h3>解法选择</h3>
-        <div class="solver-selector">
-          <div class="solver-option">
-            <input type="radio" name="solver" id="s1" value="cfop" checked>
-            <div class="solver-info">
-              <span class="solver-name">CFOP (Fridrich)</span>
-              <span class="solver-desc">十字→F2L→OLL→PLL · 比赛主流速解法</span>
-            </div>
-          </div>
-          <div class="solver-option">
-            <input type="radio" name="solver" id="s2" value="layer">
-            <div class="solver-info">
-              <span class="solver-name">层先法 (LBL)</span>
-              <span class="solver-desc">逐层还原 · 入门经典方法</span>
-            </div>
-          </div>
-          <div class="solver-option">
-            <input type="radio" name="solver" id="s3" value="roux">
-            <div class="solver-info">
-              <span class="solver-name">Roux 法</span>
-              <span class="solver-desc">块构建→CMLL→LSE · 比赛新兴速解法</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -510,40 +471,27 @@ async function startScramble() {
 }
 
 // ================================================================
-// 解魔方 (三种解法, 均经验证)
+// 解魔方 (后端 kociemba 求解)
 // ================================================================
-function getSolution() {
-  const solver = document.querySelector('input[name="solver"]:checked').value;
-  const reversed = moveHistory.slice().reverse().map(invertMove);
+async function getSolutionFromBackend() {
+  const response = await fetch('/api/solve/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state: st })
+  });
 
-  switch(solver) {
-    case 'cfop':  return optimizeFull(reversed);   // 激进优化, 步数最少
-    case 'layer': return reversed;                  // 不优化, 逐步还原
-    case 'roux':  return optimizeLight(reversed);   // 轻度优化
-    default:      return reversed;
+  let result = {};
+  try {
+    result = await response.json();
+  } catch (_) {
+    result = {};
   }
-}
 
-// CFOP风格: 激进优化 — 消除互逆对 + 三连合并 + 四连消除
-function optimizeFull(arr) {
-  arr=[...arr]; let ch=true;
-  while(ch){ch=false;for(let i=0;i<arr.length-1;i++){
-    if(arr[i+1]===invertMove(arr[i])){arr.splice(i,2);ch=true;break;}
-    if(i<arr.length-2&&arr[i]===arr[i+1]&&arr[i+1]===arr[i+2]){
-      arr.splice(i,3,invertMove(arr[i]));ch=true;break;
-    }
-    if(i<arr.length-3&&arr[i]===arr[i+1]&&arr[i+1]===arr[i+2]&&arr[i+2]===arr[i+3]){
-      arr.splice(i,4);ch=true;break;
-    }
-  }}return arr;
-}
+  if (!response.ok) {
+    throw new Error(result.error || `后端解算失败 (HTTP ${response.status})`);
+  }
 
-// Roux风格: 轻度优化 — 仅消除互逆对
-function optimizeLight(arr) {
-  arr=[...arr]; let ch=true;
-  while(ch){ch=false;for(let i=0;i<arr.length-1;i++){
-    if(arr[i+1]===invertMove(arr[i])){arr.splice(i,2);ch=true;break;}
-  }}return arr;
+  return result.moves || [];
 }
 
 async function startSolve() {
@@ -551,9 +499,18 @@ async function startSolve() {
   isAnimating = true; setButtons(true);
   clearSteps(); solveComplete = false; stepSnapshots = [];
 
-  const solution = getSolution();
-  const label = document.querySelector('input[name="solver"]:checked ~ .solver-info .solver-name').textContent;
-  updateStatus(`${label} · 共 ${solution.length} 步`, true);
+  let solution = [];
+  try {
+    updateStatus('正在请求后端解算...', true);
+    solution = await getSolutionFromBackend();
+  } catch (error) {
+    isAnimating = false;
+    setButtons(false);
+    updateStatus(`解算失败: ${error.message}`, false);
+    return;
+  }
+
+  updateStatus(`Kociemba 解法 · 共 ${solution.length} 步`, true);
 
   // 保存打乱后的初始状态作为第0步快照
   stepSnapshots.push({ state: cloneState(), num: 0, notation: '初始', desc: '打乱后状态' });
@@ -744,16 +701,6 @@ document.addEventListener('touchmove', e => {
   lmx=t.clientX; lmy=t.clientY;
 }, {passive:true});
 document.addEventListener('touchend', () => { dragging=false; });
-
-// ================================================================
-// 解法选项点击
-// ================================================================
-document.querySelectorAll('.solver-option').forEach(opt => {
-  opt.addEventListener('click', () => {
-    const radio = opt.querySelector('input[type="radio"]');
-    if (radio) radio.checked = true;
-  });
-});
 
 // ================================================================
 // 启动

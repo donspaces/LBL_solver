@@ -28,18 +28,32 @@ COLOR_TO_FACE_CHAR = {
 }
 
 
+def _patch_collections_abc_aliases():
+    # 从 Python 3.10 开始，collections 中的 Iterable/Mapping 等别名被移除。
+    # rubik_solver 依赖链中的旧版 future/past 仍可能引用这些别名，这里统一回填。
+    aliases = [
+        'Iterable',
+        'Mapping',
+        'MutableMapping',
+        'Sequence',
+        'MutableSequence',
+        'Set',
+        'MutableSet',
+        'Callable',
+    ]
+    for name in aliases:
+        if not hasattr(collections, name) and hasattr(collections.abc, name):
+            setattr(collections, name, getattr(collections.abc, name))
+
+
 def _get_rubik_solver_utils():
-    # 兼容 Python 3.10+：旧版 future/past 仍从 collections 导入 Iterable
-    # rubik_solver 依赖链会触发该导入，这里做最小兼容补丁避免 ImportError。
-    if not hasattr(collections, 'Iterable'):
-        collections.Iterable = collections.abc.Iterable
+    _patch_collections_abc_aliases()
 
     try:
         from rubik_solver import utils
     except ImportError as exc:
         raise RuntimeError(
-            '服务端缺少或不兼容 rubik_solver 依赖，请先执行 pip install -r requirements.txt，'
-            '并确认使用 Python 3.10/3.11。'
+            '服务端缺少或不兼容 rubik_solver 依赖，请先执行 pip install -r requirements.txt。'
         ) from exc
     return utils
 

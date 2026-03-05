@@ -287,6 +287,13 @@ function ccwFace(f) {
 }
 
 function applyMove(move) {
+  // 支持 Kociemba 双层记号 (如 R2/B2): 等价于同面旋转两次
+  if (typeof move === 'string' && move.length >= 2 && move[1] === '2') {
+    applyMove(move[0]);
+    applyMove(move[0]);
+    return;
+  }
+
   switch(move) {
     case 'U': {
       cwFace(0);

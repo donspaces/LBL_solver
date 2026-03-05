@@ -5,8 +5,15 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-# kociemba面序: U R F D L B
-KOCIEMBA_FACE_ORDER = [0, 5, 2, 1, 4, 3]
+# rubik_solver支持的解法
+METHOD_MAP = {
+    'beginner': 'Beginner',
+    'cfop': 'CFOP',
+    'kociemba': 'Kociemba',
+}
+
+# rubik_solver面序: U R F D L B
+SOLVER_FACE_ORDER = [0, 5, 2, 1, 4, 3]
 
 # 将颜色索引映射到中心面字符
 COLOR_TO_FACE_CHAR = {
@@ -19,12 +26,12 @@ COLOR_TO_FACE_CHAR = {
 }
 
 
-def _get_kociemba_module():
+def _get_rubik_solver_utils():
     try:
-        import kociemba
+        from rubik_solver import utils
     except ImportError as exc:
-        raise RuntimeError('服务端缺少 kociemba 依赖，请先执行 pip install -r requirements.txt') from exc
-    return kociemba
+        raise RuntimeError('服务端缺少 rubik_solver 依赖，请先执行 pip install -r requirements.txt') from exc
+    return utils
 
 
 def _validate_state(state):
@@ -45,12 +52,22 @@ def _validate_state(state):
         raise ValueError('魔方状态非法：每种颜色必须恰好出现 9 次')
 
 
-def _to_kociemba_facelets(state):
+def _validate_method(method):
+    if method not in METHOD_MAP:
+        allowed = ', '.join(METHOD_MAP.keys())
+        raise ValueError(f'solver 必须是以下之一: {allowed}')
+
+
+def _to_solver_facelets(state):
     facelets = []
-    for face_idx in KOCIEMBA_FACE_ORDER:
+    for face_idx in SOLVER_FACE_ORDER:
         for color_idx in state[face_idx]:
             facelets.append(COLOR_TO_FACE_CHAR[color_idx])
     return ''.join(facelets)
+
+
+def _normalize_moves(raw_moves):
+    return [str(move) for move in raw_moves]
 
 
 @csrf_exempt
@@ -62,11 +79,15 @@ def solve_cube(request):
         return JsonResponse({'error': '请求体必须是合法 JSON'}, status=400)
 
     state = payload.get('state')
+    method = payload.get('solver', 'kociemba')
+
     try:
         _validate_state(state)
-        facelets = _to_kociemba_facelets(state)
-        kociemba = _get_kociemba_module()
-        solution = kociemba.solve(facelets)
+        _validate_method(method)
+        facelets = _to_solver_facelets(state)
+        utils = _get_rubik_solver_utils()
+        raw_moves = utils.solve(facelets, METHOD_MAP[method])
+        moves = _normalize_moves(raw_moves)
     except ValueError as exc:
         return JsonResponse({'error': str(exc)}, status=400)
     except RuntimeError as exc:
@@ -74,5 +95,4 @@ def solve_cube(request):
     except Exception as exc:
         return JsonResponse({'error': f'求解失败: {exc}'}, status=400)
 
-    moves = solution.split() if solution else []
-    return JsonResponse({'moves': moves, 'solution': solution})
+    return JsonResponse({'moves': moves, 'solution': ' '.join(moves), 'solver': method})

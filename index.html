@@ -132,6 +132,19 @@ body {
 input[type="range"] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border-color); border-radius: 2px; outline: none; }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent-cyan); border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(0,212,255,0.4); }
 
+.solver-selector { margin-top: 8px; }
+.solver-option {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px;
+  border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.solver-option:hover { background: rgba(0,212,255,0.05); }
+.solver-option input[type="radio"] { accent-color: var(--accent-cyan); margin-top: 3px; flex-shrink: 0; }
+.solver-option .solver-info { display: flex; flex-direction: column; gap: 2px; }
+.solver-option .solver-name { cursor: pointer; color: var(--text-secondary); transition: color 0.2s; font-weight: 500; }
+.solver-option input:checked ~ .solver-info .solver-name { color: var(--text-primary); }
+.solver-option .solver-desc { font-size: 0.6rem; color: var(--text-secondary); opacity: 0.6; line-height: 1.4; }
+
 .status-bar {
   font-size: 0.75rem; color: var(--text-secondary); text-align: center;
   padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.2);
@@ -228,6 +241,32 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
             <span>快速</span>
           </div>
           <input type="range" id="speedSlider" min="30" max="800" value="500">
+        </div>
+      </div>
+      <div class="panel-card">
+        <h3>解法选择</h3>
+        <div class="solver-selector">
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s1" value="beginner" checked>
+            <div class="solver-info">
+              <span class="solver-name">Beginner</span>
+              <span class="solver-desc">基础层先法，步骤清晰，适合教学演示</span>
+            </div>
+          </div>
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s2" value="cfop">
+            <div class="solver-info">
+              <span class="solver-name">CFOP</span>
+              <span class="solver-desc">比赛常用速拧思路，步骤更紧凑</span>
+            </div>
+          </div>
+          <div class="solver-option">
+            <input type="radio" name="solver" id="s3" value="kociemba">
+            <div class="solver-info">
+              <span class="solver-name">Kociemba</span>
+              <span class="solver-desc">两阶段算法，通常可获得较短解法</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -474,10 +513,11 @@ async function startScramble() {
 // 解魔方 (后端 kociemba 求解)
 // ================================================================
 async function getSolutionFromBackend() {
+  const solver = document.querySelector('input[name="solver"]:checked')?.value || 'beginner';
   const response = await fetch('/api/solve/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state: st })
+    body: JSON.stringify({ state: st, solver })
   });
 
   let result = {};
@@ -510,7 +550,8 @@ async function startSolve() {
     return;
   }
 
-  updateStatus(`Kociemba 解法 · 共 ${solution.length} 步`, true);
+  const label = document.querySelector('input[name="solver"]:checked ~ .solver-info .solver-name')?.textContent || 'Beginner';
+  updateStatus(`${label} 解法 · 共 ${solution.length} 步`, true);
 
   // 保存打乱后的初始状态作为第0步快照
   stepSnapshots.push({ state: cloneState(), num: 0, notation: '初始', desc: '打乱后状态' });
@@ -618,6 +659,14 @@ document.getElementById('speedSlider').addEventListener('input', function() {
 document.getElementById('btnScramble').addEventListener('click', startScramble);
 document.getElementById('btnSolve').addEventListener('click', startSolve);
 document.getElementById('btnReset').addEventListener('click', resetCube);
+
+// 解法选项点击
+document.querySelectorAll('.solver-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const radio = opt.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
+  });
+});
 
 function clearSteps() {
   stepCounter = 0;

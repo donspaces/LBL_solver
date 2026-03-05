@@ -6,6 +6,12 @@
 
 ## 运行方式
 
+### Python 版本要求
+
+- 推荐：**Python 3.10 / 3.11**
+- 已知问题：部分环境下旧依赖链会报 `cannot import name 'Iterable' from 'collections'`。
+- 本项目已在后端加入兼容补丁，并在 `requirements.txt` 显式约束 `future>=0.18.3`。
+
 ### 1) 安装依赖
 
 ```bash

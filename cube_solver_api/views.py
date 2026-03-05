@@ -1,4 +1,6 @@
 import json
+import collections
+import collections.abc
 from collections import Counter
 
 from django.http import JsonResponse
@@ -27,10 +29,18 @@ COLOR_TO_FACE_CHAR = {
 
 
 def _get_rubik_solver_utils():
+    # 兼容 Python 3.10+：旧版 future/past 仍从 collections 导入 Iterable
+    # rubik_solver 依赖链会触发该导入，这里做最小兼容补丁避免 ImportError。
+    if not hasattr(collections, 'Iterable'):
+        collections.Iterable = collections.abc.Iterable
+
     try:
         from rubik_solver import utils
     except ImportError as exc:
-        raise RuntimeError('服务端缺少 rubik_solver 依赖，请先执行 pip install -r requirements.txt') from exc
+        raise RuntimeError(
+            '服务端缺少或不兼容 rubik_solver 依赖，请先执行 pip install -r requirements.txt，'
+            '并确认使用 Python 3.10/3.11。'
+        ) from exc
     return utils
 
 
